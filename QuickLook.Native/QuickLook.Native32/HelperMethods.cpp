@@ -88,13 +88,27 @@ bool HelperMethods::IsListaryToolbarVisible()
 	return found;
 }
 
+// Windows 10 1909 replaced the search box in the File Explorer by a UWP control.
+// gti.flags is always 0 for UWP applications.
+bool HelperMethods::IsExplorerSearchBoxFocused()
+{
+	auto* hwnd = GetFocusedControl();
+
+	WCHAR classBuffer[MAX_PATH] = { '\0' };
+	if (FAILED(GetClassName(hwnd, classBuffer, MAX_PATH)))
+		return false;
+
+	return wcscmp(classBuffer, L"Windows.UI.Core.CoreWindow") == 0;
+}
+
 bool HelperMethods::IsCursorActivated(HWND hwnd)
 {
 	auto tId = GetWindowThreadProcessId(hwnd, nullptr);
 
-	GUITHREADINFO gui = {sizeof gui};
-	GetGUIThreadInfo(tId, &gui);
-	return gui.flags || gui.hwndCaret || IsListaryToolbarVisible();
+	GUITHREADINFO gti = { sizeof gti };
+	GetGUIThreadInfo(tId, &gti);
+
+	return gti.flags || gti.hwndCaret || IsListaryToolbarVisible();
 }
 
 bool HelperMethods::IsUWP()
@@ -107,4 +121,18 @@ bool HelperMethods::IsUWP()
 
 	UINT32 pn = 0;
 	return pGCPFN(&pn, nullptr) == ERROR_INSUFFICIENT_BUFFER;
+}
+
+HWND HelperMethods::GetFocusedControl()
+{
+	auto tid = GetWindowThreadProcessId(GetForegroundWindow(), nullptr);
+
+   	if (0 == AttachThreadInput(GetCurrentThreadId(), tid, TRUE))
+		return nullptr;
+
+	auto* hwnd = GetFocus();
+
+ 	AttachThreadInput(GetCurrentThreadId(), tid, FALSE);
+
+	return hwnd;
 }
